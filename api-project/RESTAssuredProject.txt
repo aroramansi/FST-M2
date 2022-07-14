@@ -1,0 +1,186 @@
+---ConsumerTest.java
+
+package liveProject;
+
+import au.com.dius.pact.consumer.dsl.DslPart;
+import au.com.dius.pact.consumer.dsl.PactDslJsonBody;
+import au.com.dius.pact.consumer.dsl.PactDslWithProvider;
+import au.com.dius.pact.consumer.junit5.PactConsumerTestExt;
+import au.com.dius.pact.consumer.junit5.PactTestFor;
+import au.com.dius.pact.core.matchers.ResponseMatch;
+import au.com.dius.pact.core.model.RequestResponsePact;
+import au.com.dius.pact.core.model.annotations.Pact;
+import io.restassured.response.Response;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import static io.restassured.RestAssured.given;
+
+@ExtendWith(PactConsumerTestExt.class)
+public class ConsumerTest {
+    Map<String, String> headers = new HashMap<>();
+    String resourcePath = "/api/users";
+
+    @Pact(consumer = "UserConsumer", provider = "UserProvider")
+    public RequestResponsePact CreatePact(PactDslWithProvider builder) {
+        headers.put("Content-Type", "application/json");
+        DslPart requestResponseBody = new PactDslJsonBody()
+                .numberType("id")
+                .stringType("firstName")
+                .stringType("lastName")
+                .stringType("email");
+
+        return builder.given("A request to create a user")
+                .uponReceiving("A request to create a user")
+                    .method("POST")
+                    .path(resourcePath)
+                    .headers(headers)
+                    .body(requestResponseBody)
+                .willRespondWith()
+                    .status(201)
+                    .body(requestResponseBody)
+                .toPact();
+    }
+
+    @Test()
+    @PactTestFor(providerName = "UserProvider", port = "8282")
+    public void consumerTest(){
+        final String baseURI = "http://localhost:8282";
+        Map<String, Object> reqBody = new HashMap<>();
+        reqBody.put("id",88);
+        reqBody.put("firstName","Sun");
+        reqBody.put("lastName","Raj");
+        reqBody.put("email","Sun@abcd.com");
+
+
+        Response response = given().headers(headers).body(reqBody)
+                .when().post(baseURI+resourcePath);
+
+        System.out.println(response.getBody().asPrettyString());
+
+        response.then().statusCode(201);
+
+    }
+
+}
+
+
+--GitHubProject.java
+
+package liveProject;
+
+import io.restassured.builder.RequestSpecBuilder;
+import io.restassured.http.ContentType;
+import io.restassured.response.Response;
+import io.restassured.specification.RequestSpecification;
+import org.testng.annotations.BeforeClass;
+import org.testng.annotations.Test;
+
+import static io.restassured.RestAssured.given;
+
+public class GitHubProject {
+    RequestSpecification requestSpec;
+    String sshkey;
+    int num;
+
+    @BeforeClass
+    public void setUp() {
+        requestSpec = new RequestSpecBuilder()
+                .setBaseUri("https://api.github.com")
+                .setContentType(ContentType.JSON)
+                .addHeader("Authorization", "token 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")
+                .build();
+
+    }
+
+    @Test(priority = 1)
+    public void postRequestTest() {
+        String reqBody = "{\"title\":\"TestAPIKey\",\"key\":\"ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCGtG6oTE7MZGOXrSdDaGs26ditwjDsrQ7nFl02+AIIQaoTooeDDEqAD4dy15ZJxXVC+HcWcfgJJoBAiISC6svnsH8QNBK+1dpAN/c/hcP/rZ1DPrgCBowW4LNc9LwLLBB/jUDWRof0Cb29539mLvAnL56338xwIbCBhcg8mrb3FF46rTmvNZyuPepTyv5br00FyfByVQLfU7bo8VhQdfBjsAns4HWpYP3b5l5k8q+aOQ2SatSKiL/0iD4slhrLXopMdFqwxnnH438yPM6mJxLsYAQWpP7zbYq/u+GBu8gaxnweIc34iTmApR3uHrPSUcV4Hwq3L9VCaODtQRYYE8pf\"}";
+        Response response = given().spec(requestSpec)
+                .body(reqBody)
+                .when().post("/user/keys");
+        System.out.println(response.getBody().asPrettyString());
+        num = response.then().extract().body().path("id");
+        response.then().statusCode(201);
+
+    }
+
+  @Test(priority = 2)
+    public void getRequestTest()
+    {
+        Response response = given().spec(requestSpec)
+                .when().get("/user/keys/" + num);
+
+        System.out.println(response.getBody().asPrettyString());
+        response.then().statusCode(200);
+    }
+
+    @Test(priority = 3)
+    public void deleteRequestTest()
+    {
+        Response response = given().spec(requestSpec)
+                .when().delete("/user/keys/" + num);
+
+        System.out.println(response.getBody().asPrettyString());
+        response.then().statusCode(204);
+
+    }
+
+
+}
+
+
+--ProviderTest.java
+
+package liveProject;
+
+import au.com.dius.pact.provider.junit.Provider;
+import au.com.dius.pact.provider.junit.State;
+import au.com.dius.pact.provider.junit.loader.PactFolder;
+import au.com.dius.pact.provider.junit5.HttpTestTarget;
+import au.com.dius.pact.provider.junit5.PactVerificationContext;
+import au.com.dius.pact.provider.junit5.PactVerificationInvocationContextProvider;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.TestTemplate;
+import org.junit.jupiter.api.extension.ExtendWith;
+
+import java.util.Map;
+
+@Provider("UserProvider")
+@PactFolder("target/pacts")
+public class ProviderTest {
+    @BeforeEach
+    public void setUp(PactVerificationContext context) {
+        HttpTestTarget target = new HttpTestTarget("localhost",8585);
+        context.setTarget(target);
+    }
+
+    @TestTemplate
+    @ExtendWith(PactVerificationInvocationContextProvider.class)
+    public void testMethod(PactVerificationContext context)
+        {
+        context.verifyInteraction();
+    }
+    @State("A request to create a user")
+    public void providerState()
+        {
+
+    }
+
+}
+ 
+ 
+--activities.userGETResponse.json
+{
+    "id": 1234,
+    "username": "SampleTest",
+    "firstName": "Sample",
+    "lastName": "Test",
+    "email": "sampletest@mail.com",
+    "password": "password1234",
+    "phone": "989898989",
+    "userStatus": 0
+} 
