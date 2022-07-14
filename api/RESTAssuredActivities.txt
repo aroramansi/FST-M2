@@ -242,6 +242,31 @@ public class Activity3 {
  
 }
 
+-- input.json
+
+{
+    "id": 1097,
+    "username": "jdoe",
+    "firstName": "Justin",
+    "lastName": "Case",
+    "email": "justincase@mail.com",
+    "password": "password123",
+    "phone": "9812763450"
+}
+
+--output.json
+
+{
+    "id": 1097,
+    "username": "jdoe",
+    "firstName": "Justin",
+    "lastName": "Case",
+    "email": "justincase@mail.com",
+    "password": "password123",
+    "phone": "9812763450",
+    "userStatus": 0
+}
+
 
 
 
